@@ -29,5 +29,6 @@ class Student(BaseModel):
     @classmethod
     async def from_mongo(cls, student_dict):
         student_dict["_id"] = str(student_dict["_id"])
+        student_dict["id"] = student_dict.pop("_id")  # Set _id as id
         student_dict["address"] = Address(**student_dict["address"])
         return cls(**student_dict)

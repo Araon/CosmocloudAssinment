@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from config.database import students_collection, async_students_collection
+from config.database import async_students_collection
 from models.students import Student
 from schema.schema import StudentCreate, StudentUpdate
 from bson import ObjectId
@@ -7,19 +7,18 @@ from bson import ObjectId
 router = APIRouter()
 
 
-@router.post("/students/", response_model=Student)
+@router.post("/students/")
 async def create_student(student: StudentCreate):
+    response = {}
     student_dict = student.dict()
     student_dict["address"] = student_dict["address"]
     result = await async_students_collection.insert_one(student_dict)
     inserted_id = str(result.inserted_id)
-    return {
-        "id": inserted_id
-    }
-    # return Student.from_mongo({**student_dict, "_id": inserted_id})
+    response["id"] = inserted_id
+    return response
 
 
-@router.get("/students/", response_model=list[Student])
+@router.get("/students/", response_model=dict)
 async def get_students(country: str = None, age: int = None):
     query = {}
     if country:
@@ -27,18 +26,23 @@ async def get_students(country: str = None, age: int = None):
     if age:
         query["age"] = {"$gte": age}
     students = await async_students_collection.find(query).to_list(length=100)
-    return [Student.from_mongo(student) for student in students]
+    student_models = [await Student.from_mongo(student) for student in students]
+    student_data = [{"name": student.name, "age": student.age} for student in student_models]
+    return {"data": student_data}
 
 
-@router.get("/students/{id}", response_model=Student)
+@router.get("/students/{id}", response_model=dict)
 async def get_student(id: str):
-    student = await students_collection.find_one({"_id": ObjectId(id)})
+    student = await async_students_collection.find_one({"_id": ObjectId(id)})
     if student is None:
         raise HTTPException(status_code=404, detail="Student not found")
-    return await Student.from_mongo(student)
+    student_obj = await Student.from_mongo(student)
+    student_dict = student_obj.dict()
+    student_dict.pop('id', None)
+    return student_dict
 
 
-@router.patch("/students/{id}", response_model=Student)
+@router.patch("/students/{id}", status_code=204)
 async def update_student(id: str, student: StudentUpdate):
     student_dict = student.dict(exclude_unset=True)
     if "address" in student_dict:
@@ -46,8 +50,6 @@ async def update_student(id: str, student: StudentUpdate):
     result = await async_students_collection.update_one({"_id": ObjectId(id)}, {"$set": student_dict})
     if not result.matched_count:
         raise HTTPException(status_code=404, detail="Student not found")
-    student = await async_students_collection.find_one({"_id": ObjectId(id)})
-    return Student.from_mongo(student)
 
 
 @router.delete("/students/{id}")

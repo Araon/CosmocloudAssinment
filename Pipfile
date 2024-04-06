@@ -9,6 +9,7 @@ uvicorn = "*"
 asynctest = "*"
 pymongo = {extras = ["srv"], version = "*"}
 motor = "*"
+python-dotenv = "*"
 
 [dev-packages]
 
