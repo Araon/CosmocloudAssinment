@@ -7,6 +7,13 @@ from bson import ObjectId
 router = APIRouter()
 
 
+@router.get("/")
+async def welcome():
+    return {
+        "GET /docs": "For swagger documentaion"
+    }
+
+
 @router.post("/students/")
 async def create_student(student: StudentCreate):
     response = {}
